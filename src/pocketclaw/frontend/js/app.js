@@ -43,6 +43,11 @@ function app() {
         skills: [],
         skillsLoading: false,
 
+        // Remote Access state
+        showRemote: false,
+        remoteStatus: { active: false, url: '', installed: false },
+        tunnelLoading: false,
+
         // Transparency Panel state
         showIdentity: false,
         identityLoading: false,
@@ -109,6 +114,39 @@ function app() {
          */
         init() {
             this.log('PocketPaw Dashboard initialized', 'info');
+
+            // Handle Auth Token (URL capture)
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            if (token) {
+                localStorage.setItem('pocketpaw_token', token);
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                this.log('Auth token captured and stored', 'success');
+            }
+
+            // --- OVERRIDE FETCH FOR AUTH ---
+            const originalFetch = window.fetch;
+            window.fetch = async (url, options = {}) => {
+                const storedToken = localStorage.getItem('pocketpaw_token');
+                
+                // Skip auth for static or external
+                if (url.toString().startsWith('/api') || url.toString().startsWith('/')) {
+                     options.headers = options.headers || {};
+                     if (storedToken) {
+                         options.headers['Authorization'] = `Bearer ${storedToken}`;
+                     }
+                }
+                
+                const response = await originalFetch(url, options);
+                
+                if (response.status === 401 || response.status === 403) {
+                     this.showToast('Session expired. Please re-authenticate.', 'error');
+                     // Optionally redirect to login page (if we had one)
+                }
+                
+                return response;
+            };
 
             // Register event handlers first
             this.setupSocketHandlers();
@@ -1064,6 +1102,79 @@ function app() {
          */
         showToast(message, type = 'info') {
             Tools.showToast(message, type, this.$refs.toasts);
+        },
+
+        // ==================== Remote Access ====================
+
+        /**
+         * Open Remote Access modal
+         */
+        async openRemote() {
+            this.showRemote = true;
+            this.tunnelLoading = true;
+            
+            try {
+                const res = await fetch('/api/remote/status');
+                if (res.ok) {
+                    this.remoteStatus = await res.json();
+                }
+            } catch (e) {
+                console.error('Failed to get tunnel status', e);
+            } finally {
+                this.tunnelLoading = false;
+            }
+        },
+
+        /**
+         * Toggle Cloudflare Tunnel
+         */
+        async toggleTunnel() {
+            this.tunnelLoading = true;
+            try {
+                const endpoint = this.remoteStatus.active ? '/api/remote/stop' : '/api/remote/start';
+                const res = await fetch(endpoint, { method: 'POST' });
+                const data = await res.json();
+                
+                if (data.error) {
+                    this.showToast(data.error, 'error');
+                } else {
+                    // Refresh status
+                    const statusRes = await fetch('/api/remote/status');
+                    this.remoteStatus = await statusRes.json();
+                    
+                    if (this.remoteStatus.active) {
+                        this.showToast('Tunnel Started! You can now access remotely.', 'success');
+                    } else {
+                        this.showToast('Tunnel Stopped.', 'info');
+                    }
+                }
+            } catch (e) {
+                this.showToast('Failed to toggle tunnel: ' + e.message, 'error');
+            } finally {
+                this.tunnelLoading = false;
+            }
+        },
+
+        /**
+         * Regenerate Access Token
+         */
+        async regenerateToken() {
+            if (!confirm('Are you sure? This will invalidate all existing sessions (including your phone).')) return;
+            
+            try {
+                const res = await fetch('/api/token/regenerate', { method: 'POST' });
+                const data = await res.json();
+                
+                if (data.token) {
+                    localStorage.setItem('pocketpaw_token', data.token);
+                    this.showToast('Token regenerated! Please re-scan the QR code.', 'success');
+                    // Force refresh QR code image
+                    this.showRemote = false;
+                    setTimeout(() => { this.showRemote = true; }, 100);
+                }
+            } catch (e) {
+                this.showToast('Failed to regenerate token', 'error');
+            }
         }
     };
 }

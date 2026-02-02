@@ -6,7 +6,7 @@
     <title>PocketPaw</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'><text y='32' font-size='32'>🦀</text></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%230A84FF'/><g transform='translate(4,4)' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='4' r='2'/><circle cx='3' cy='7' r='2'/><circle cx='19' cy='7' r='2'/><circle cx='7' cy='19' r='2'/><circle cx='15' cy='19' r='2'/><path d='M8 14v.5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V14a4 4 0 0 0-6 0z'/></g></svg>"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
@@ -119,6 +119,7 @@
           <i data-lucide="settings" class="w-5 h-5"></i>
           <span>Settings</span>
         </button>
+
       </nav>
 
       <!-- System Status Widget -->
@@ -182,6 +183,17 @@
           >
             Terminal
           </button>
+        </div>
+
+        <!-- Center Action Button -->
+        <div class="flex-1 flex justify-center">
+            <button 
+                class="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95" 
+                @click="openRemote()"
+            >
+                <i data-lucide="smartphone" class="w-4 h-4 text-accent"></i>
+                <span class="text-sm font-medium text-white/90">Take Your Paw With You</span>
+            </button>
         </div>
 
         <div class="agent-toggle">
@@ -855,6 +867,70 @@
                             <div class="mt-1 text-white/60 truncate" x-text="JSON.stringify(log.context)"></div>
                         </div>
                     </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Remote Access Modal -->
+    <div class="modal-overlay" x-show="showRemote" x-transition.opacity @click.self="showRemote = false">
+        <div class="modal" @click.stop style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Remote Access</h2>
+                <button class="close-btn" @click="showRemote = false"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="flex flex-col gap-6 items-center text-center">
+                    
+                    <!-- QR Code -->
+                    <div class="bg-white p-2 rounded-xl">
+                        <img :src="'/api/qr?t=' + Date.now()" alt="Scan to Login" class="w-48 h-48 block" />
+                    </div>
+                    
+                    <p class="text-white/60 text-sm">
+                        Scan with your phone to access PocketPaw remotely.
+                    </p>
+
+                    <!-- Tunnel Controls -->
+                    <div class="w-full glass-dark p-4 rounded-xl flex flex-col gap-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium">Cloudflare Tunnel</span>
+                            <span class="text-xs px-2 py-0.5 rounded-full" 
+                                  :class="remoteStatus.active ? 'bg-success/20 text-success' : 'bg-white/10 text-white/50'"
+                                  x-text="remoteStatus.active ? 'ONLINE' : 'OFFLINE'">
+                            </span>
+                        </div>
+                        
+                        <div x-show="remoteStatus.active" class="text-xs text-accent break-all bg-black/30 p-2 rounded">
+                            <a :href="remoteStatus.url" target="_blank" class="hover:underline" x-text="remoteStatus.url"></a>
+                        </div>
+                        
+                        <div class="flex gap-2 mt-1">
+                            <button class="btn-primary w-full" 
+                                    x-show="!remoteStatus.active" 
+                                    @click="toggleTunnel()"
+                                    :disabled="tunnelLoading">
+                                <i x-show="tunnelLoading" data-lucide="loader-2" class="w-4 h-4 animate-spin mr-1"></i>
+                                Start Tunnel
+                            </button>
+                            
+                            <button class="btn-danger w-full" 
+                                    x-show="remoteStatus.active" 
+                                    @click="toggleTunnel()"
+                                    :disabled="tunnelLoading">
+                                <i x-show="tunnelLoading" data-lucide="loader-2" class="w-4 h-4 animate-spin mr-1"></i>
+                                Stop Tunnel
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Token Reset -->
+                    <div class="w-full border-t border-white/10 pt-4">
+                        <button class="text-xs text-white/40 hover:text-white/70 transition-colors" @click="regenerateToken()">
+                            Regenerate Access Token
+                        </button>
+                    </div>
+
                 </div>
             </div>
         </div>

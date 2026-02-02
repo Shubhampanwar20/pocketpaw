@@ -27,6 +27,12 @@ def get_config_path() -> Path:
     return get_config_dir() / "config.json"
 
 
+def get_token_path() -> Path:
+    """Get the access token file path."""
+    return get_config_dir() / "access_token"
+
+
+
 class Settings(BaseSettings):
     """PocketPaw settings with env and file support."""
     
@@ -111,3 +117,29 @@ def get_settings(force_reload: bool = False) -> Settings:
     if force_reload:
         get_settings.cache_clear()
     return Settings.load()
+
+
+def get_access_token() -> str:
+    """
+    Get the current access token.
+    If it doesn't exist, generate a new one.
+    """
+    token_path = get_token_path()
+    if token_path.exists():
+        token = token_path.read_text().strip()
+        if token:
+            return token
+    
+    return regenerate_token()
+
+
+def regenerate_token() -> str:
+    """
+    Generate a new secure access token and save it.
+    Invalidates previous tokens.
+    """
+    import uuid
+    token = str(uuid.uuid4())
+    token_path = get_token_path()
+    token_path.write_text(token)
+    return token

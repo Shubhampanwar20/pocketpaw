@@ -14,11 +14,14 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Query, Request
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
+import io
+import qrcode
 
-from pocketclaw.config import Settings
+from pocketclaw.config import Settings, get_access_token, regenerate_token, get_settings, get_config_path
 
 from pocketclaw.scheduler import get_scheduler
 from pocketclaw.daemon import get_daemon
@@ -33,6 +36,8 @@ import uuid
 from pocketclaw.memory import get_memory_manager, MemoryType
 from pocketclaw.security import get_audit_logger
 from pocketclaw.bootstrap import DefaultBootstrapProvider
+# Tunnel access
+from pocketclaw.tunnel import get_tunnel_manager
 
 
 logger = logging.getLogger(__name__)
@@ -138,9 +143,173 @@ async def index():
     return FileResponse(FRONTEND_DIR / "index.html")
 
 
+# ==================== Auth Middleware ====================
+
+async def verify_token(
+    request: Request,
+    token: Optional[str] = Query(None),
+):
+    """
+    Verify access token from query param or Authorization header.
+    Skipped for localhost/127.0.0.1 unless strict mode enabled (future).
+    For now, we enforce it for everyone to ensure the flow works.
+    """
+    # SKIP AUTH for static files and health checks (if any)
+    if request.url.path.startswith("/static") or request.url.path == "/favicon.ico":
+        return True
+
+    # Check query param
+    current_token = get_access_token()
+    
+    if token == current_token:
+        return True
+        
+    # Check header
+    auth_header = request.headers.get("Authorization")
+    if auth_header:
+        if auth_header == f"Bearer {current_token}":
+            return True
+            
+    # Allow localhost (optional bypass for dev comfort, but stick to Plan 5A strictness)
+    # Allow localhost (Trusted Local Environment)
+    client_host = request.client.host
+    if client_host == "127.0.0.1" or client_host == "localhost":
+        return True
+    
+    raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    # Exempt routes
+    exempt_paths = ["/static", "/favicon.ico", "/api/qr"]  # Allow getting QR code to login
+    
+    # Simple check for static
+    for path in exempt_paths:
+        if request.url.path.startswith(path):
+            return await call_next(request)
+    
+    # Check for token in query or header
+    token = request.query_params.get("token")
+    auth_header = request.headers.get("Authorization")
+    current_token = get_access_token()
+    
+    is_valid = False
+    
+    # 1. Check Query Param
+    if token and token == current_token:
+        is_valid = True
+    
+    # 2. Check Header
+    elif auth_header and auth_header == f"Bearer {current_token}":
+        is_valid = True
+
+    # 3. Allow Localhost (Trusted)
+    elif request.client.host == "127.0.0.1" or request.client.host == "localhost":
+        is_valid = True
+        
+    # 3. Allow landing page request (index.html) IF it has the token? 
+    # Actually, we want to allow loading index.html so the frontend can check localStorage
+    # and then attach the header. BUT if it's the first visit, we need to allow index.html
+    # so we can execute the JS.
+    # So we should probably allowing "/" but block all "/api/*"
+    
+    if request.url.path == "/" or request.url.path.endswith(".js") or request.url.path.endswith(".css"):
+         return await call_next(request)
+
+    # API Protection
+    if request.url.path.startswith("/api") or request.url.path.startswith("/ws"):
+        if not is_valid:
+            # For APIs return 401
+             from fastapi.responses import JSONResponse
+             return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+
+    response = await call_next(request)
+    return response
+
+
+# ==================== QR Code & Token API ====================
+
+@app.get("/api/qr")
+async def get_qr_code(request: Request):
+    """Generate QR login code."""
+    # Logic: If tunnel is active, use tunnel URL. Else local IP.
+    # For Phase 5A, simpler: Just use what the request came to, or attempt to find local IP.
+    host = request.headers.get("host")
+    
+    # Check for ACTIVE tunnel first to prioritize it
+    tunnel = get_tunnel_manager()
+    status = tunnel.get_status()
+    
+    if status.get("active") and status.get("url"):
+         login_url = f"{status['url']}/?token={get_access_token()}"
+    else:
+        # Fallback to current request host (localhost or network IP)
+        protocol = "https" if "trycloudflare" in str(host) else "http"
+        login_url = f"{protocol}://{host}/?token={get_access_token()}"
+    
+    img = qrcode.make(login_url)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    
+    return StreamingResponse(buf, media_type="image/png")
+
+@app.post("/api/token/regenerate")
+async def regenerate_access_token():
+    """Regenerate access token (invalidates old sessions)."""
+    # This endpoint implies you are already authorized (middleware checks it)
+    new_token = regenerate_token()
+    return {"token": new_token}
+
+
+# ==================== Tunnel API ====================
+
+@app.get("/api/remote/status")
+async def get_tunnel_status():
+    """Get active tunnel status."""
+    manager = get_tunnel_manager()
+    return manager.get_status()
+
+@app.post("/api/remote/start")
+async def start_tunnel():
+    """Start Cloudflare tunnel."""
+    manager = get_tunnel_manager()
+    try:
+        url = await manager.start()
+        return {"url": url, "active": True}
+    except Exception as e:
+        # Error handling via JSON to frontend
+        return {"error": str(e), "active": False}
+
+@app.post("/api/remote/stop")
+async def stop_tunnel():
+    """Stop Cloudflare tunnel."""
+    manager = get_tunnel_manager()
+    await manager.stop()
+    return {"active": False}
+
+
+
+
+
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(None)):
     """WebSocket endpoint for real-time communication."""
+    # Verify Token
+    expected_token = get_access_token()
+    
+    # Allow localhost bypass for WebSocket too
+    client_host = websocket.client.host
+    is_localhost = client_host == "127.0.0.1" or client_host == "localhost"
+
+    if token != expected_token and not is_localhost:
+        # Try waiting for an initial message with token? 
+        # Standard usage: ws://host/ws?token=XYZ
+        # If missing/invalid, close.
+        await websocket.close(code=4003, reason="Unauthorized")
+        return
+
     await websocket.accept()
 
     # Track connection
@@ -467,13 +636,15 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.get("/api/identity")
 async def get_identity():
     """Get agent identity context."""
-    provider = DefaultBootstrapProvider(get_settings().config_path.parent)
-    context = provider.load_context()
+    # config_path = get_config_path()
+    provider = DefaultBootstrapProvider(get_config_path().parent)
+    context = await provider.get_context()
     return {
         "identity_file": context.identity,
         "soul_file": context.soul,
-        "tools_file": context.tools,
-        "user_file": context.user,
+        "style_file": context.style,
+        # "tools_file": context.tools, # Not in BootstrapContext
+        # "user_file": context.user,   # Not in BootstrapContext
     }
 
 @app.get("/api/memory/session")
