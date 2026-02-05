@@ -27,6 +27,7 @@ from anthropic import Anthropic
 
 from pocketclaw.config import Settings
 from pocketclaw.agents.protocol import AgentEvent
+from pocketclaw.tools.policy import ToolPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -38,29 +39,27 @@ logger = logging.getLogger(__name__)
 # Dangerous command patterns (regex for better matching)
 DANGEROUS_PATTERNS = [
     # Destructive file operations
-    r"rm\s+(-[rf]+\s+)*[/~]",           # rm -rf /, rm -r -f ~, etc.
-    r"rm\s+(-[rf]+\s+)*\*",             # rm -rf *
-    r"sudo\s+rm\b",                      # Any sudo rm
-    r">\s*/dev/",                        # Write to devices
-    r"mkfs\.",                           # Format filesystem
-    r"dd\s+if=",                         # Disk operations
+    r"rm\s+(-[rf]+\s+)*[/~]",  # rm -rf /, rm -r -f ~, etc.
+    r"rm\s+(-[rf]+\s+)*\*",  # rm -rf *
+    r"sudo\s+rm\b",  # Any sudo rm
+    r">\s*/dev/",  # Write to devices
+    r"mkfs\.",  # Format filesystem
+    r"dd\s+if=",  # Disk operations
     r":\(\)\s*\{\s*:\|:\s*&\s*\}\s*;",  # Fork bomb
-    r"chmod\s+(-R\s+)?777\s+/",          # Dangerous permissions
-
+    r"chmod\s+(-R\s+)?777\s+/",  # Dangerous permissions
     # Remote code execution
-    r"curl\s+.*\|\s*(ba)?sh",            # curl | sh
-    r"wget\s+.*\|\s*(ba)?sh",            # wget | sh
-    r"curl\s+.*-o\s*/",                  # curl download to root
-    r"wget\s+.*-O\s*/",                  # wget download to root
-
+    r"curl\s+.*\|\s*(ba)?sh",  # curl | sh
+    r"wget\s+.*\|\s*(ba)?sh",  # wget | sh
+    r"curl\s+.*-o\s*/",  # curl download to root
+    r"wget\s+.*-O\s*/",  # wget download to root
     # System damage
-    r">\s*/etc/passwd",                  # Overwrite passwd
-    r">\s*/etc/shadow",                  # Overwrite shadow
+    r">\s*/etc/passwd",  # Overwrite passwd
+    r">\s*/etc/shadow",  # Overwrite shadow
     r"systemctl\s+(stop|disable)\s+(ssh|sshd|firewall)",  # Disable security
-    r"iptables\s+-F",                    # Flush firewall
-    r"shutdown",                         # Shutdown system
-    r"reboot",                           # Reboot system
-    r"init\s+0",                         # Halt system
+    r"iptables\s+-F",  # Flush firewall
+    r"shutdown",  # Shutdown system
+    r"reboot",  # Reboot system
+    r"init\s+0",  # Halt system
 ]
 
 # Sensitive paths that should never be read or written
@@ -70,7 +69,6 @@ SENSITIVE_PATHS = [
     ".ssh/id_ed25519",
     ".ssh/id_ecdsa",
     ".ssh/authorized_keys",
-
     # Credentials
     ".aws/credentials",
     ".aws/config",
@@ -79,14 +77,12 @@ SENSITIVE_PATHS = [
     ".pypirc",
     ".docker/config.json",
     ".kube/config",
-
     # Secrets
     ".env",
     ".envrc",
     "secrets.json",
     "credentials.json",
     ".git-credentials",
-
     # System files
     "/etc/passwd",
     "/etc/shadow",
@@ -95,12 +91,12 @@ SENSITIVE_PATHS = [
 
 # Patterns to redact from output (API keys, passwords, etc.)
 REDACT_PATTERNS = [
-    r"(sk-[a-zA-Z0-9]{20,})",                    # OpenAI/Anthropic keys
-    r"(AKIA[A-Z0-9]{16})",                       # AWS access key
-    r"(ghp_[a-zA-Z0-9]{36})",                    # GitHub token
-    r"(xox[baprs]-[a-zA-Z0-9-]+)",               # Slack token
-    r"password[\"']?\s*[:=]\s*[\"']([^\"']+)",   # password = "..."
-    r"api[_-]?key[\"']?\s*[:=]\s*[\"']([^\"']+)", # api_key = "..."
+    r"(sk-[a-zA-Z0-9]{20,})",  # OpenAI/Anthropic keys
+    r"(AKIA[A-Z0-9]{16})",  # AWS access key
+    r"(ghp_[a-zA-Z0-9]{36})",  # GitHub token
+    r"(xox[baprs]-[a-zA-Z0-9-]+)",  # Slack token
+    r"password[\"']?\s*[:=]\s*[\"']([^\"']+)",  # password = "..."
+    r"api[_-]?key[\"']?\s*[:=]\s*[\"']([^\"']+)",  # api_key = "..."
 ]
 
 # System prompt - PocketPaw's personality and instructions
@@ -204,11 +200,11 @@ ALWAYS instruct it to RETURN data as text, not open GUI apps.""",
             "properties": {
                 "task": {
                     "type": "string",
-                    "description": "SPECIFIC task description. Include: what data to query, which app, and 'return as text' or 'do not open app'"
+                    "description": "SPECIFIC task description. Include: what data to query, which app, and 'return as text' or 'do not open app'",
                 }
             },
-            "required": ["task"]
-        }
+            "required": ["task"],
+        },
     },
     {
         "name": "shell",
@@ -216,27 +212,19 @@ ALWAYS instruct it to RETURN data as text, not open GUI apps.""",
         "input_schema": {
             "type": "object",
             "properties": {
-                "command": {
-                    "type": "string",
-                    "description": "The shell command to execute"
-                }
+                "command": {"type": "string", "description": "The shell command to execute"}
             },
-            "required": ["command"]
-        }
+            "required": ["command"],
+        },
     },
     {
         "name": "read_file",
         "description": "Read the contents of a file",
         "input_schema": {
             "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Path to the file to read"
-                }
-            },
-            "required": ["path"]
-        }
+            "properties": {"path": {"type": "string", "description": "Path to the file to read"}},
+            "required": ["path"],
+        },
     },
     {
         "name": "write_file",
@@ -244,17 +232,11 @@ ALWAYS instruct it to RETURN data as text, not open GUI apps.""",
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Path to the file to write"
-                },
-                "content": {
-                    "type": "string",
-                    "description": "Content to write to the file"
-                }
+                "path": {"type": "string", "description": "Path to the file to write"},
+                "content": {"type": "string", "description": "Content to write to the file"},
             },
-            "required": ["path", "content"]
-        }
+            "required": ["path", "content"],
+        },
     },
     {
         "name": "list_dir",
@@ -262,13 +244,10 @@ ALWAYS instruct it to RETURN data as text, not open GUI apps.""",
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Path to the directory to list"
-                }
+                "path": {"type": "string", "description": "Path to the directory to list"}
             },
-            "required": ["path"]
-        }
+            "required": ["path"],
+        },
     },
     {
         "name": "remember",
@@ -278,16 +257,16 @@ ALWAYS instruct it to RETURN data as text, not open GUI apps.""",
             "properties": {
                 "content": {
                     "type": "string",
-                    "description": "The information to remember (be specific and clear)"
+                    "description": "The information to remember (be specific and clear)",
                 },
                 "tags": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Optional tags to categorize the memory (e.g., 'preference', 'project', 'personal')"
-                }
+                    "description": "Optional tags to categorize the memory (e.g., 'preference', 'project', 'personal')",
+                },
             },
-            "required": ["content"]
-        }
+            "required": ["content"],
+        },
     },
     {
         "name": "recall",
@@ -295,18 +274,15 @@ ALWAYS instruct it to RETURN data as text, not open GUI apps.""",
         "input_schema": {
             "type": "object",
             "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "What to search for in memories"
-                },
+                "query": {"type": "string", "description": "What to search for in memories"},
                 "limit": {
                     "type": "integer",
-                    "description": "Maximum number of memories to return (default: 5)"
-                }
+                    "description": "Maximum number of memories to return (default: 5)",
+                },
             },
-            "required": ["query"]
-        }
-    }
+            "required": ["query"],
+        },
+    },
 ]
 
 
@@ -334,6 +310,11 @@ class PocketPawOrchestrator:
         self._executor = None
         self._stop_flag = False
         self._file_jail = settings.file_jail_path.resolve()
+        self._policy = ToolPolicy(
+            profile=settings.tool_profile,
+            allow=settings.tools_allow,
+            deny=settings.tools_deny,
+        )
         self._initialize()
 
     def _initialize(self) -> None:
@@ -348,6 +329,7 @@ class PocketPawOrchestrator:
         # Initialize executor (Open Interpreter)
         try:
             from pocketclaw.agents.executor import OpenInterpreterExecutor
+
             self._executor = OpenInterpreterExecutor(self.settings)
         except Exception as e:
             logger.warning(f"⚠️ Executor init failed: {e}. Using fallback.")
@@ -359,8 +341,13 @@ class PocketPawOrchestrator:
         logger.info("   └─ Hands: Open Interpreter")
         logger.info("   └─ Model: %s", self.settings.anthropic_model)
         logger.info("   └─ File Jail: %s", self._file_jail)
+        logger.info("   └─ Tool Profile: %s", self.settings.tool_profile)
         logger.info("   └─ Security: Enabled (patterns, paths, redaction)")
         logger.info("=" * 50)
+
+    def _get_filtered_tools(self) -> list[dict]:
+        """Return TOOLS filtered by the active tool policy."""
+        return [t for t in TOOLS if self._policy.is_tool_allowed(t["name"])]
 
     # =========================================================================
     # SECURITY METHODS
@@ -463,7 +450,7 @@ class PocketPawOrchestrator:
                 logger.info(f"🖥️ Delegating to Open Interpreter: {task[:100]}...")
 
                 # Use executor's run_complex_task method (cleaner interface)
-                if self._executor and hasattr(self._executor, 'run_complex_task'):
+                if self._executor and hasattr(self._executor, "run_complex_task"):
                     result = await self._executor.run_complex_task(task)
                     return self._redact_secrets(result or "(no output)")
                 else:
@@ -487,6 +474,7 @@ class PocketPawOrchestrator:
                 else:
                     # Fallback: direct execution
                     import subprocess
+
                     try:
                         proc = subprocess.run(
                             command,
@@ -494,7 +482,7 @@ class PocketPawOrchestrator:
                             capture_output=True,
                             text=True,
                             timeout=60,
-                            cwd=str(self._file_jail)  # Run in jail directory
+                            cwd=str(self._file_jail),  # Run in jail directory
                         )
                         result = proc.stdout + proc.stderr
                     except subprocess.TimeoutExpired:
@@ -517,7 +505,7 @@ class PocketPawOrchestrator:
                 if self._executor:
                     content = await self._executor.read_file(path)
                 else:
-                    with open(Path(path).expanduser(), 'r') as f:
+                    with open(Path(path).expanduser(), "r") as f:
                         content = f.read()
 
                 # Security: redact secrets from file content
@@ -536,7 +524,7 @@ class PocketPawOrchestrator:
                 if self._executor:
                     await self._executor.write_file(path, content)
                 else:
-                    with open(Path(path).expanduser(), 'w') as f:
+                    with open(Path(path).expanduser(), "w") as f:
                         f.write(content)
 
                 return f"✓ Written to {path}"
@@ -555,10 +543,12 @@ class PocketPawOrchestrator:
                     return "\n".join(items)
                 else:
                     import os
+
                     return "\n".join(os.listdir(Path(path).expanduser()))
 
             elif tool_name == "remember":
                 from pocketclaw.memory.manager import get_memory_manager
+
                 content = tool_input.get("content", "")
                 tags = tool_input.get("tags", [])
 
@@ -569,10 +559,13 @@ class PocketPawOrchestrator:
                 await manager.remember(content, tags=tags)
 
                 tags_str = f" with tags: {', '.join(tags)}" if tags else ""
-                return f"✅ Remembered{tags_str}: {content[:100]}{'...' if len(content) > 100 else ''}"
+                return (
+                    f"✅ Remembered{tags_str}: {content[:100]}{'...' if len(content) > 100 else ''}"
+                )
 
             elif tool_name == "recall":
                 from pocketclaw.memory.manager import get_memory_manager
+
                 query = tool_input.get("query", "")
                 limit = tool_input.get("limit", 5)
 
@@ -611,8 +604,7 @@ class PocketPawOrchestrator:
         """
         if not self._client:
             yield AgentEvent(
-                type="error",
-                content="❌ PocketPaw not initialized. Check Anthropic API key."
+                type="error", content="❌ PocketPaw not initialized. Check Anthropic API key."
             )
             return
 
@@ -635,8 +627,8 @@ class PocketPawOrchestrator:
                     model=self.settings.anthropic_model,
                     max_tokens=4096,
                     system=SYSTEM_PROMPT,
-                    tools=TOOLS,
-                    messages=messages
+                    tools=self._get_filtered_tools(),
+                    messages=messages,
                 )
 
                 # Process response content blocks
@@ -660,7 +652,7 @@ class PocketPawOrchestrator:
                         yield AgentEvent(
                             type="tool_use",
                             content=f"🔧 Using {tool_name}...",
-                            metadata={"name": tool_name, "input": tool_input}
+                            metadata={"name": tool_name, "input": tool_input},
                         )
 
                         # Execute
@@ -670,15 +662,13 @@ class PocketPawOrchestrator:
                         yield AgentEvent(
                             type="tool_result",
                             content=result[:500] + ("..." if len(result) > 500 else ""),
-                            metadata={"name": tool_name}
+                            metadata={"name": tool_name},
                         )
 
                         assistant_content.append(block)
-                        tool_results_needed.append({
-                            "type": "tool_result",
-                            "tool_use_id": tool_id,
-                            "content": result
-                        })
+                        tool_results_needed.append(
+                            {"type": "tool_result", "tool_use_id": tool_id, "content": result}
+                        )
 
                 # Add assistant message to history
                 messages.append({"role": "assistant", "content": assistant_content})
@@ -716,5 +706,5 @@ class PocketPawOrchestrator:
             "backend": "pocketpaw_native",
             "available": self._client is not None,
             "executor": "open_interpreter" if self._executor else "fallback",
-            "model": self.settings.anthropic_model
+            "model": self.settings.anthropic_model,
         }

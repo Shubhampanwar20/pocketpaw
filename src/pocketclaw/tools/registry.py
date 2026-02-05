@@ -2,13 +2,16 @@
 # Created: 2026-02-02
 # Part of Nanobot Pattern Adoption
 
-from typing import Any, List
+from __future__ import annotations
+
 import logging
+from typing import Any
+
+from pocketclaw.security import AuditSeverity, get_audit_logger
+from pocketclaw.tools.policy import ToolPolicy
+from pocketclaw.tools.protocol import ToolProtocol
 
 logger = logging.getLogger(__name__)
-
-from pocketclaw.tools.protocol import ToolProtocol
-from pocketclaw.security import get_audit_logger, AuditSeverity
 
 
 class ToolRegistry:
@@ -27,8 +30,9 @@ class ToolRegistry:
         result = await registry.execute("shell", command="ls -la")
     """
 
-    def __init__(self):
+    def __init__(self, policy: ToolPolicy | None = None):
         self._tools: dict[str, ToolProtocol] = {}
+        self._policy = policy
 
     def register(self, tool: ToolProtocol) -> None:
         """Register a tool."""
@@ -49,8 +53,12 @@ class ToolRegistry:
         """Check if tool is registered."""
         return name in self._tools
 
-    def get_definitions(self, format: str = "openai") -> List[dict[str, Any]]:
-        """Get all tool definitions.
+    def set_policy(self, policy: ToolPolicy) -> None:
+        """Set or replace the tool policy."""
+        self._policy = policy
+
+    def get_definitions(self, format: str = "openai") -> list[dict[str, Any]]:
+        """Get tool definitions, filtered by the active policy.
 
         Args:
             format: "openai" or "anthropic"
@@ -60,6 +68,9 @@ class ToolRegistry:
         """
         definitions = []
         for tool in self._tools.values():
+            if self._policy and not self._policy.is_tool_allowed(tool.name):
+                logger.info("Tool '%s' blocked by policy", tool.name)
+                continue
             defn = tool.definition
             if format == "anthropic":
                 definitions.append(defn.to_anthropic_schema())
@@ -82,9 +93,14 @@ class ToolRegistry:
         if not tool:
             return f"Error: Tool '{name}' not found. Available: {list(self._tools.keys())}"
 
+        # Policy check
+        if self._policy and not self._policy.is_tool_allowed(name):
+            logger.warning("Tool '%s' blocked by policy at execution time", name)
+            return f"Error: Tool '{name}' is not allowed by the current tool policy."
+
         # Audit Log: Attempt
         audit = get_audit_logger()
-        
+
         # Map trust_level to severity
         t_level = getattr(tool, "trust_level", "standard")
         if t_level == "critical":
@@ -93,13 +109,13 @@ class ToolRegistry:
             severity = AuditSeverity.WARNING
         else:
             severity = AuditSeverity.INFO
-            
-        audit_id = audit.log_tool_use(name, params, severity=severity, status="attempt")
+
+        audit.log_tool_use(name, params, severity=severity, status="attempt")
 
         try:
             logger.debug(f"🔧 Executing {name} with {params}")
             result = await tool.execute(**params)
-            
+
             # Audit Log: Success
             # We don't log full result content in audit to avoid PII, usually
             # But we might log "success" with generic context
@@ -111,23 +127,34 @@ class ToolRegistry:
             return result
         except Exception as e:
             # Audit Log: Error
-            from pocketclaw.security.audit import AuditEvent, AuditSeverity as AS
-            audit.log(AuditEvent.create(
-                severity=AS.WARNING,
-                actor="agent",
-                action="tool_error",
-                target=name,
-                status="error",
-                error=str(e),
-                params=params
-            ))
+            from pocketclaw.security.audit import AuditEvent
+            from pocketclaw.security.audit import AuditSeverity as AS
+
+            audit.log(
+                AuditEvent.create(
+                    severity=AS.WARNING,
+                    actor="agent",
+                    action="tool_error",
+                    target=name,
+                    status="error",
+                    error=str(e),
+                    params=params,
+                )
+            )
             logger.error(f"🔧 {name} failed: {e}")
             return f"Error executing {name}: {str(e)}"
 
     @property
-    def tool_names(self) -> List[str]:
-        """Get list of registered tool names."""
+    def tool_names(self) -> list[str]:
+        """Get list of registered tool names (unfiltered)."""
         return list(self._tools.keys())
+
+    @property
+    def allowed_tool_names(self) -> list[str]:
+        """Get list of tool names that pass the active policy."""
+        if not self._policy:
+            return self.tool_names
+        return [n for n in self._tools if self._policy.is_tool_allowed(n)]
 
     def __len__(self) -> int:
         return len(self._tools)

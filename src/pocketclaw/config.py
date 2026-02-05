@@ -7,9 +7,8 @@ Changes:
 """
 
 import json
-from pathlib import Path
-from typing import Optional
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -32,60 +31,77 @@ def get_token_path() -> Path:
     return get_config_dir() / "access_token"
 
 
-
 class Settings(BaseSettings):
     """PocketPaw settings with env and file support."""
-    
-    model_config = SettingsConfigDict(
-        env_prefix="POCKETCLAW_",
-        env_file=".env",
-        extra="ignore"
-    )
-    
+
+    model_config = SettingsConfigDict(env_prefix="POCKETCLAW_", env_file=".env", extra="ignore")
+
     # Telegram
-    telegram_bot_token: Optional[str] = Field(default=None, description="Telegram Bot Token from @BotFather")
-    allowed_user_id: Optional[int] = Field(default=None, description="Telegram User ID allowed to control the bot")
-    
+    telegram_bot_token: str | None = Field(
+        default=None, description="Telegram Bot Token from @BotFather"
+    )
+    allowed_user_id: int | None = Field(
+        default=None, description="Telegram User ID allowed to control the bot"
+    )
+
     # Agent Backend
     agent_backend: str = Field(
         default="claude_agent_sdk",
-        description="Agent backend: 'claude_agent_sdk' (recommended), 'pocketpaw_native', or 'open_interpreter'"
+        description="Agent backend: 'claude_agent_sdk' (recommended), 'pocketpaw_native', or 'open_interpreter'",
     )
-    
+
     # LLM Configuration
-    llm_provider: str = Field(default="auto", description="LLM provider: 'auto', 'ollama', 'openai', 'anthropic'")
+    llm_provider: str = Field(
+        default="auto", description="LLM provider: 'auto', 'ollama', 'openai', 'anthropic'"
+    )
     ollama_host: str = Field(default="http://localhost:11434", description="Ollama API host")
     ollama_model: str = Field(default="llama3.2", description="Ollama model to use")
-    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
+    openai_api_key: str | None = Field(default=None, description="OpenAI API key")
     openai_model: str = Field(default="gpt-4o", description="OpenAI model to use")
-    anthropic_api_key: Optional[str] = Field(default=None, description="Anthropic API key")
-    anthropic_model: str = Field(default="claude-sonnet-4-5-20250929", description="Anthropic model to use")
-    
+    anthropic_api_key: str | None = Field(default=None, description="Anthropic API key")
+    anthropic_model: str = Field(
+        default="claude-sonnet-4-5-20250929", description="Anthropic model to use"
+    )
+
     # Memory Backend
     memory_backend: str = Field(
         default="file",
-        description="Memory backend: 'file' (simple markdown), 'mem0' (semantic with LLM)"
+        description="Memory backend: 'file' (simple markdown), 'mem0' (semantic with LLM)",
     )
     memory_use_inference: bool = Field(
-        default=True,
-        description="Use LLM to extract facts from memories (only for mem0 backend)"
+        default=True, description="Use LLM to extract facts from memories (only for mem0 backend)"
+    )
+
+    # Tool Policy
+    tool_profile: str = Field(
+        default="full", description="Tool profile: 'minimal', 'coding', or 'full'"
+    )
+    tools_allow: list[str] = Field(
+        default_factory=list, description="Explicit tool allow list (merged with profile)"
+    )
+    tools_deny: list[str] = Field(
+        default_factory=list, description="Explicit tool deny list (highest priority)"
     )
 
     # Security
-    bypass_permissions: bool = Field(default=False, description="Skip permission prompts for agent actions (use with caution)")
-    file_jail_path: Path = Field(default_factory=Path.home, description="Root path for file operations")
-    
+    bypass_permissions: bool = Field(
+        default=False, description="Skip permission prompts for agent actions (use with caution)"
+    )
+    file_jail_path: Path = Field(
+        default_factory=Path.home, description="Root path for file operations"
+    )
+
     # Web Server
     web_host: str = Field(default="127.0.0.1", description="Web server host")
     web_port: int = Field(default=8888, description="Web server port")
-    
+
     def save(self) -> None:
         """Save settings to config file.
-        
+
         Merges with existing config to preserve API keys if not set in current instance.
         """
         config_path = get_config_path()
-        
+
         # Load existing config to preserve API keys if not set
         existing = {}
         if config_path.exists():
@@ -93,7 +109,7 @@ class Settings(BaseSettings):
                 existing = json.loads(config_path.read_text())
             except (json.JSONDecodeError, Exception):
                 pass
-        
+
         data = {
             "telegram_bot_token": self.telegram_bot_token or existing.get("telegram_bot_token"),
             "allowed_user_id": self.allowed_user_id or existing.get("allowed_user_id"),
@@ -109,7 +125,7 @@ class Settings(BaseSettings):
             "anthropic_model": self.anthropic_model,
         }
         config_path.write_text(json.dumps(data, indent=2))
-    
+
     @classmethod
     def load(cls) -> "Settings":
         """Load settings from config file, falling back to env/defaults."""
@@ -141,7 +157,7 @@ def get_access_token() -> str:
         token = token_path.read_text().strip()
         if token:
             return token
-    
+
     return regenerate_token()
 
 
@@ -151,6 +167,7 @@ def regenerate_token() -> str:
     Invalidates previous tokens.
     """
     import uuid
+
     token = str(uuid.uuid4())
     token_path = get_token_path()
     token_path.write_text(token)

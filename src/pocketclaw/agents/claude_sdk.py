@@ -23,6 +23,7 @@ from typing import AsyncIterator, Optional, Any
 
 from pocketclaw.config import Settings
 from pocketclaw.agents.protocol import AgentEvent, ExecutorProtocol
+from pocketclaw.tools.policy import ToolPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -89,12 +90,29 @@ class ClaudeAgentSDK:
     Requires: pip install claude-agent-sdk
     """
 
+    # Map SDK tool names to policy tool names for filtering
+    _SDK_TO_POLICY: dict[str, str] = {
+        "Bash": "shell",
+        "Read": "read_file",
+        "Write": "write_file",
+        "Edit": "edit_file",
+        "Glob": "list_dir",
+        "Grep": "shell",  # search is shell-adjacent
+        "WebSearch": "browser",
+        "WebFetch": "browser",
+    }
+
     def __init__(self, settings: Settings, executor: Optional[ExecutorProtocol] = None):
         self.settings = settings
         self._executor = executor  # Optional - SDK has built-in execution
         self._stop_flag = False
         self._sdk_available = False
         self._cwd = Path.home()  # Default working directory
+        self._policy = ToolPolicy(
+            profile=settings.tool_profile,
+            allow=settings.tools_allow,
+            deny=settings.tools_deny,
+        )
 
         # SDK imports (set during initialization)
         self._query = None
@@ -188,10 +206,7 @@ class ClaudeAgentSDK:
         return None
 
     async def _block_dangerous_hook(
-        self,
-        input_data: dict,
-        tool_use_id: str,
-        context: dict
+        self, input_data: dict, tool_use_id: str, context: dict
     ) -> dict:
         """PreToolUse hook to block dangerous commands.
 
@@ -239,7 +254,7 @@ class ClaudeAgentSDK:
         Returns:
             Concatenated text from all TextBlocks
         """
-        if not hasattr(message, 'content'):
+        if not hasattr(message, "content"):
             return ""
 
         content = message.content
@@ -254,10 +269,10 @@ class ClaudeAgentSDK:
             for block in content:
                 # Check if it's a TextBlock
                 if self._TextBlock and isinstance(block, self._TextBlock):
-                    if hasattr(block, 'text') and block.text:
+                    if hasattr(block, "text") and block.text:
                         texts.append(block.text)
                 # Fallback: check for text attribute
-                elif hasattr(block, 'text') and isinstance(block.text, str):
+                elif hasattr(block, "text") and isinstance(block.text, str):
                     texts.append(block.text)
             return "".join(texts)
 
@@ -272,22 +287,26 @@ class ClaudeAgentSDK:
         Returns:
             List of tool use dicts with name and input
         """
-        if not hasattr(message, 'content') or message.content is None:
+        if not hasattr(message, "content") or message.content is None:
             return []
 
         tools = []
         for block in message.content:
             if self._ToolUseBlock and isinstance(block, self._ToolUseBlock):
-                tools.append({
-                    "name": getattr(block, 'name', 'unknown'),
-                    "input": getattr(block, 'input', {}),
-                })
-            elif hasattr(block, 'name') and hasattr(block, 'input'):
+                tools.append(
+                    {
+                        "name": getattr(block, "name", "unknown"),
+                        "input": getattr(block, "input", {}),
+                    }
+                )
+            elif hasattr(block, "name") and hasattr(block, "input"):
                 # Fallback check
-                tools.append({
-                    "name": block.name,
-                    "input": block.input,
-                })
+                tools.append(
+                    {
+                        "name": block.name,
+                        "input": block.input,
+                    }
+                )
         return tools
 
     async def chat(self, message: str) -> AsyncIterator[AgentEvent]:
@@ -311,17 +330,25 @@ class ClaudeAgentSDK:
         self._stop_flag = False
 
         try:
-            # Build allowed tools list - all built-in tools
-            allowed_tools = [
-                # Shell & System
+            # Build allowed tools list, filtered by tool policy
+            all_sdk_tools = [
                 "Bash",
-                # File operations
-                "Read", "Write", "Edit",
-                # Search
-                "Glob", "Grep",
-                # Web (the killer features!)
-                "WebSearch", "WebFetch",
+                "Read",
+                "Write",
+                "Edit",
+                "Glob",
+                "Grep",
+                "WebSearch",
+                "WebFetch",
             ]
+            allowed_tools = [
+                t
+                for t in all_sdk_tools
+                if self._policy.is_tool_allowed(self._SDK_TO_POLICY.get(t, t))
+            ]
+            if len(allowed_tools) < len(all_sdk_tools):
+                blocked = set(all_sdk_tools) - set(allowed_tools)
+                logger.info("Tool policy blocked SDK tools: %s", blocked)
 
             # Build hooks for security
             hooks = {
@@ -364,7 +391,7 @@ class ClaudeAgentSDK:
 
                 # ========== SystemMessage - metadata, skip ==========
                 if self._SystemMessage and isinstance(event, self._SystemMessage):
-                    subtype = getattr(event, 'subtype', '')
+                    subtype = getattr(event, "subtype", "")
                     logger.debug(f"SystemMessage: {subtype}")
                     continue
 
@@ -387,14 +414,14 @@ class ClaudeAgentSDK:
                         yield AgentEvent(
                             type="tool_use",
                             content=f"Using {tool['name']}...",
-                            metadata={"name": tool['name'], "input": tool['input']}
+                            metadata={"name": tool["name"], "input": tool["input"]},
                         )
                     continue
 
                 # ========== ResultMessage - final result ==========
                 if self._ResultMessage and isinstance(event, self._ResultMessage):
-                    is_error = getattr(event, 'is_error', False)
-                    result = getattr(event, 'result', '')
+                    is_error = getattr(event, "is_error", False)
+                    result = getattr(event, "result", "")
 
                     if is_error:
                         logger.error(f"ResultMessage error: {result}")
@@ -418,12 +445,12 @@ class ClaudeAgentSDK:
             if "CLINotFoundError" in error_msg or "not found" in error_msg.lower():
                 yield AgentEvent(
                     type="error",
-                    content="❌ Claude Code CLI not found.\n\nInstall with: npm install -g @anthropic-ai/claude-code"
+                    content="❌ Claude Code CLI not found.\n\nInstall with: npm install -g @anthropic-ai/claude-code",
                 )
             elif "API key" in error_msg.lower() or "authentication" in error_msg.lower():
                 yield AgentEvent(
                     type="error",
-                    content="❌ Anthropic API key not configured.\n\nSet ANTHROPIC_API_KEY environment variable."
+                    content="❌ Anthropic API key not configured.\n\nSet ANTHROPIC_API_KEY environment variable.",
                 )
             else:
                 yield AgentEvent(type="error", content=f"❌ Agent error: {error_msg}")
@@ -440,10 +467,9 @@ class ClaudeAgentSDK:
             "available": self._sdk_available,
             "running": not self._stop_flag,
             "cwd": str(self._cwd),
-            "features": [
-                "Bash", "Read", "Write", "Edit",
-                "Glob", "Grep", "WebSearch", "WebFetch"
-            ] if self._sdk_available else [],
+            "features": ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch"]
+            if self._sdk_available
+            else [],
         }
 
 
@@ -460,5 +486,5 @@ class ClaudeAgentSDKWrapper(ClaudeAgentSDK):
             yield {
                 "type": event.type,
                 "content": event.content,
-                "metadata": getattr(event, 'metadata', None),
+                "metadata": getattr(event, "metadata", None),
             }
