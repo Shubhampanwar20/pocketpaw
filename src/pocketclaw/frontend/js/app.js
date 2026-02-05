@@ -3,6 +3,11 @@
  * Alpine.js component for the dashboard
  *
  * Changes (2026-02-05):
+ * - Fixed: Missing closing brace in loadMCData() causing syntax error
+ * - Added Mission Control agent execution with real-time WebSocket streaming
+ * - Added runningTasks, liveOutput state for task execution tracking
+ * - Added handleMCEvent() to handle mc_task_started, mc_task_output, mc_task_completed, mc_activity_created
+ * - Added runMCTask(), stopMCTask(), isMCTaskRunning(), getMCLiveOutput() methods
  * - Added Mission Control as full view (not modal) with Linear-inspired design
  * - Added "Missions" tab in top bar with live indicator
  * - Added missionControl state: agents, tasks, activities, stats, selectedTask
@@ -88,7 +93,10 @@ function app() {
             showCreateAgent: false,
             showCreateTask: false,
             agentForm: { name: '', role: '', description: '', specialties: '' },
-            taskForm: { title: '', description: '', priority: 'medium', assignee: '', tags: '' }
+            taskForm: { title: '', description: '', priority: 'medium', assignee: '', tags: '' },
+            // Task execution state
+            runningTasks: {},  // {task_id: {agentName, output: []}}
+            liveOutput: '',    // Current live output for selected task
         },
 
         // Transparency Panel state
@@ -283,6 +291,8 @@ function app() {
             socket.on('connection_info', (data) => this.handleConnectionInfo(data));
             socket.on('system_event', (data) => this.handleSystemEvent(data));
 
+            // Note: Mission Control events come through system_event
+            // They are handled in handleSystemEvent based on event_type prefix 'mc_'
         },
 
         /**
@@ -1065,33 +1075,183 @@ function app() {
         },
 
         /**
-         * Handle system event (Activity Log)
+         * Handle system event (Activity Log + Mission Control events)
          */
         handleSystemEvent(data) {
            const time = Tools.formatTime();
+           const eventType = data.event_type || '';
+
+           // Handle Mission Control events
+           if (eventType.startsWith('mc_')) {
+               this.handleMCEvent(data);
+               return;
+           }
+
+           // Handle standard system events
            let message = '';
            let level = 'info';
 
-           if (data.event_type === 'thinking') {
+           if (eventType === 'thinking') {
                message = `<span class="text-accent animate-pulse">Thinking...</span>`;
-           } else if (data.event_type === 'tool_start') {
+           } else if (eventType === 'tool_start') {
                message = `🔧 <b>${data.data.name}</b> <span class="text-white/50">${JSON.stringify(data.data.params)}</span>`;
                level = 'warning';
-           } else if (data.event_type === 'tool_result') {
+           } else if (eventType === 'tool_result') {
                const isError = data.data.status === 'error';
                level = isError ? 'error' : 'success';
                message = `${isError ? '❌' : '✅'} <b>${data.data.name}</b> result: <span class="text-white/50">${String(data.data.result).substring(0, 50)} ${(String(data.data.result).length > 50) ? '...' : ''}</span>`;
            } else {
-               message = `Unknown event: ${data.event_type}`;
+               message = `Unknown event: ${eventType}`;
            }
 
            this.activityLog.push({ time, message, level });
-           
+
            // Auto-scroll activity log
            this.$nextTick(() => {
                const term = this.$refs.activityLog;
                if (term) term.scrollTop = term.scrollHeight;
            });
+        },
+
+        /**
+         * Handle Mission Control WebSocket events
+         */
+        handleMCEvent(data) {
+            const eventType = data.event_type;
+            const eventData = data.data || {};
+
+            if (eventType === 'mc_task_started') {
+                // Task execution started
+                const taskId = eventData.task_id;
+                const agentName = eventData.agent_name;
+                const taskTitle = eventData.task_title;
+
+                // Track running task
+                this.missionControl.runningTasks[taskId] = {
+                    agentName: agentName,
+                    output: [],
+                    startedAt: new Date()
+                };
+
+                // Update task status in local state
+                const task = this.missionControl.tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.status = 'in_progress';
+                }
+
+                // Update agent status
+                const agentId = eventData.agent_id;
+                const agent = this.missionControl.agents.find(a => a.id === agentId);
+                if (agent) {
+                    agent.status = 'active';
+                    agent.current_task_id = taskId;
+                }
+
+                // If this task is selected, clear the live output
+                if (this.missionControl.selectedTask?.id === taskId) {
+                    this.missionControl.liveOutput = '';
+                }
+
+                this.showToast(`${agentName} started: ${taskTitle}`, 'info');
+                this.log(`Task started: ${taskTitle}`, 'info');
+
+            } else if (eventType === 'mc_task_output') {
+                // Agent produced output
+                const taskId = eventData.task_id;
+                const content = eventData.content || '';
+                const outputType = eventData.output_type;
+
+                // Add to running task output
+                if (this.missionControl.runningTasks[taskId]) {
+                    this.missionControl.runningTasks[taskId].output.push({
+                        content,
+                        type: outputType,
+                        timestamp: new Date()
+                    });
+                }
+
+                // If this task is selected, append to live output
+                if (this.missionControl.selectedTask?.id === taskId) {
+                    if (outputType === 'message') {
+                        this.missionControl.liveOutput += content;
+                    } else if (outputType === 'tool_use') {
+                        this.missionControl.liveOutput += `\n🔧 ${content}\n`;
+                    } else if (outputType === 'tool_result') {
+                        this.missionControl.liveOutput += `\n✅ ${content}\n`;
+                    }
+
+                    // Scroll live output panel
+                    this.$nextTick(() => {
+                        const panel = this.$refs.liveOutputPanel;
+                        if (panel) panel.scrollTop = panel.scrollHeight;
+                    });
+                }
+
+            } else if (eventType === 'mc_task_completed') {
+                // Task execution completed
+                const taskId = eventData.task_id;
+                const status = eventData.status;  // 'completed', 'error', 'stopped'
+                const error = eventData.error;
+
+                // Remove from running tasks
+                delete this.missionControl.runningTasks[taskId];
+
+                // Update task status
+                const task = this.missionControl.tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.status = status === 'completed' ? 'done' : 'blocked';
+                    if (status === 'completed') {
+                        task.completed_at = new Date().toISOString();
+                    }
+                }
+
+                // Update agent status
+                const agentId = eventData.agent_id;
+                const agent = this.missionControl.agents.find(a => a.id === agentId);
+                if (agent) {
+                    agent.status = 'idle';
+                    agent.current_task_id = null;
+                }
+
+                // Update stats
+                if (status === 'completed') {
+                    this.missionControl.stats.completed_today++;
+                    this.missionControl.stats.active_tasks = Math.max(0, this.missionControl.stats.active_tasks - 1);
+                }
+
+                // Show notification
+                if (status === 'completed') {
+                    this.showToast(`Task completed: ${task?.title || taskId}`, 'success');
+                } else if (status === 'error') {
+                    this.showToast(`Task failed: ${error || 'Unknown error'}`, 'error');
+                } else if (status === 'stopped') {
+                    this.showToast('Task stopped', 'info');
+                }
+
+                this.log(`Task ${status}: ${task?.title || taskId}`, status === 'completed' ? 'success' : 'error');
+
+                // Refresh icons
+                this.$nextTick(() => {
+                    if (window.refreshIcons) window.refreshIcons();
+                });
+
+            } else if (eventType === 'mc_activity_created') {
+                // New activity logged
+                const activity = eventData.activity;
+                if (activity) {
+                    // Prepend to activities (most recent first)
+                    this.missionControl.activities.unshift(activity);
+                    // Keep only last 50
+                    if (this.missionControl.activities.length > 50) {
+                        this.missionControl.activities.pop();
+                    }
+                }
+
+                // Refresh icons for activity feed
+                this.$nextTick(() => {
+                    if (window.refreshIcons) window.refreshIcons();
+                });
+            }
         },
 
         openIdentity() {
@@ -1460,6 +1620,7 @@ function app() {
                         completed_today: raw.tasks?.by_status?.done || 0,
                         total_documents: raw.documents?.total || 0
                     };
+                }
             } catch (e) {
                 console.error('Failed to load Mission Control data:', e);
                 this.showToast('Failed to load Mission Control', 'error');
@@ -1722,6 +1883,74 @@ function app() {
             } catch (e) {
                 return dateStr;
             }
+        },
+
+        /**
+         * Run a task with an assigned agent
+         */
+        async runMCTask(taskId, agentId) {
+            if (!taskId || !agentId) {
+                this.showToast('Task must have an assigned agent', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/mission-control/tasks/${taskId}/run`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ agent_id: agentId })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    this.showToast(data.message || 'Task started', 'success');
+                    // Clear live output for selected task
+                    if (this.missionControl.selectedTask?.id === taskId) {
+                        this.missionControl.liveOutput = '';
+                    }
+                } else {
+                    const err = await res.json();
+                    this.showToast(err.detail || 'Failed to start task', 'error');
+                }
+            } catch (e) {
+                console.error('Failed to run task:', e);
+                this.showToast('Failed to start task', 'error');
+            }
+        },
+
+        /**
+         * Stop a running task
+         */
+        async stopMCTask(taskId) {
+            try {
+                const res = await fetch(`/api/mission-control/tasks/${taskId}/stop`, {
+                    method: 'POST'
+                });
+
+                if (res.ok) {
+                    this.showToast('Task stopped', 'info');
+                } else {
+                    const err = await res.json();
+                    this.showToast(err.detail || 'Failed to stop task', 'error');
+                }
+            } catch (e) {
+                console.error('Failed to stop task:', e);
+                this.showToast('Failed to stop task', 'error');
+            }
+        },
+
+        /**
+         * Check if a task is currently running
+         */
+        isMCTaskRunning(taskId) {
+            return taskId in this.missionControl.runningTasks;
+        },
+
+        /**
+         * Get live output for the selected task
+         */
+        getMCLiveOutput() {
+            return this.missionControl.liveOutput;
         }
     };
 }
