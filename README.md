@@ -1,11 +1,28 @@
-# 🐾 PocketPaw
+<p align="center">
+  <img src="paw.png" alt="PocketPaw" width="200">
+</p>
 
-> **Hi, I'm PocketPaw! The AI agent that lives on YOUR laptop, not some corporate datacenter.**
+<h1 align="center">PocketPaw</h1>
 
-[![PyPI version](https://img.shields.io/pypi/v/pocketpaw.svg)](https://pypi.org/project/pocketpaw/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Downloads](https://img.shields.io/pypi/dm/pocketpaw.svg)](https://pypi.org/project/pocketpaw/)
+<p align="center">
+  <strong>Your AI agent that lives on YOUR laptop, not some corporate datacenter.</strong>
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/pocketpaw/"><img src="https://img.shields.io/pypi/v/pocketpaw.svg" alt="PyPI version"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"></a>
+  <a href="https://pypi.org/project/pocketpaw/"><img src="https://img.shields.io/pypi/dm/pocketpaw.svg" alt="Downloads"></a>
+</p>
+
+<p align="center">
+  Self-hosted, multi-agent AI platform. Talk through <strong>Telegram</strong>, work happens on your machine.<br>
+  No subscription. No cloud lock-in. Just you and your Paw.
+</p>
+
+---
+
+## Quick Start
 
 ```bash
 pip install pocketpaw && pocketpaw
@@ -13,128 +30,185 @@ pip install pocketpaw && pocketpaw
 
 **That's it.** One command. 30 seconds. Your own AI agent.
 
-I'm your self-hosted, cross-platform personal AI agent. You talk to me through **Telegram**, and I do the work on your computer. Unlike those fancy cloud AIs, I run on _your_ machine, respect _your_ privacy, and I'm always here - even on that dusty laptop in your closet.
+<details>
+<summary>More install options</summary>
 
-**No subscription. No cloud lock-in. Just you and me.**
-
----
-
-## 🎬 What Can I Do?
-
-```
-You: "Find all the PDFs in my Downloads and organize them by date"
-Me:  *runs commands, moves files around*
-Me:  "Done! I moved 23 PDFs into dated folders. Your Downloads is clean now!"
-
-You: "Go to GitHub and star the PocketPaw repo"
-Me:  *opens browser, navigates, clicks star*
-Me:  "Starred! Thanks for the support 🐾"
-
-You: "What's eating up my disk space?"
-Me:  *analyzes filesystem*
-Me:  "Found it! You have 47GB of node_modules. Want me to clean them up?"
-```
-
----
-
-## ✨ Features
-
-| Feature | Description |
-|---------|-------------|
-| 🔋 **Sleep Mode** | I use near-zero CPU when idle, wake instantly on your message |
-| 🔒 **Local-First** | I run on YOUR machine. Your data never leaves your computer |
-| 🌐 **Browser Control** | I can browse the web, fill forms, click buttons for you |
-| 🧠 **Dual Agent Backend** | Open Interpreter or Claude Code - your choice |
-| 🤖 **Multi-LLM** | Ollama (100% local), OpenAI, or Anthropic |
-| 📱 **Telegram-First** | Control me from anywhere, no port forwarding needed |
-| 🖥️ **Cross-Platform** | macOS, Windows, Linux - I go where you go |
-| 🛡️ **Guardian AI** | Built-in safety checks before running dangerous commands |
-| 🧠 **Long-term Memory** | I remember facts about you across sessions |
-
----
-
-## 🚀 One-Command Install
-
-### Option 1: pip (Recommended)
 ```bash
-pip install pocketpaw
-pocketpaw
-```
+# Isolated install
+pipx install pocketpaw && pocketpaw
 
-### Option 2: pipx (Isolated Install)
-```bash
-pipx install pocketpaw
-pocketpaw
-```
-
-### Option 3: uvx (Run Without Installing)
-```bash
+# Run without installing
 uvx pocketpaw
-```
 
-### Option 4: From Source
-```bash
+# From source
 git clone https://github.com/pocketpaw/pocketpaw.git
 cd pocketpaw
 uv run pocketpaw
 ```
 
-**That's it!** No Docker. No config files. No YAML. No dependency hell.
+</details>
 
-I'll automatically:
-1. Set up everything I need
-2. Open your browser for quick Telegram setup
-3. Be ready to help in 30 seconds!
+PocketPaw will open your browser, walk you through Telegram bot setup, and be ready to go.
+No Docker. No config files. No YAML. No dependency hell.
 
 ---
 
-## 🌐 Browser Superpowers (New!)
+## What Can PocketPaw Do?
 
-I can control a web browser for you! I see pages as a semantic tree and can:
-
-- **Navigate** to any URL
-- **Click** buttons and links
-- **Type** into forms
-- **Scroll** through pages
-- **Take screenshots**
+### Daily Life
 
 ```
-You: "Log into my GitHub and check my notifications"
-Me:  *navigates to GitHub, sees login form*
-Me:  "I see the login page. I found: textbox [ref=1], password field [ref=2],
-      and Sign In button [ref=3]. Should I proceed?"
+You:  "Every Sunday evening, remind me which recycling bins to put out"
+Paw:  *creates a recurring schedule*
+Paw:  "Done. I'll check the recycling calendar and message you every Sunday at 6pm."
+
+You:  "Organize my Downloads folder — PDFs by date, images by type, delete duplicates"
+Paw:  *scans filesystem, moves 47 files, removes 12 duplicates*
+Paw:  "All clean. Here's what I did: [summary]"
 ```
 
-I use your existing Chrome if you have it - no extra downloads. If you don't have Chrome, I'll download a small browser automatically on first use.
+### Research & Browsing
+
+```
+You:  *drops a link in Telegram*
+Paw:  *opens browser, reads the page, researches related topics*
+Paw:  "Here's a summary with 3 key takeaways. Want me to save this to memory?"
+
+You:  "Find the best flights from SFO to Tokyo in March"
+Paw:  *opens browser, navigates flight sites, compares prices*
+Paw:  "Found 4 options. Cheapest is $487 on ANA, departing Mar 12."
+```
+
+### Coding & DevOps
+
+```
+You:  "Set up a new FastAPI project with auth, tests, and Docker"
+Paw:  *scaffolds project, writes boilerplate, creates Dockerfile*
+Paw:  "Project ready at ~/projects/my-api. Run `docker compose up` to start."
+
+You:  "Find that memory leak — the app crashes after 2 hours"
+Paw:  *reads logs, profiles code, identifies the issue*
+Paw:  "Found it. The WebSocket handler never closes connections. Here's the fix."
+```
+
+### Multi-Agent Workflows (Mission Control)
+
+```
+You:  "I need a competitor analysis report for our product launch"
+Paw:  *spins up Agent A: web researcher, Agent B: data analyst, Agent C: writer*
+Paw:  "3 agents working on it. Agent A is scraping competitor sites,
+       Agent B is analyzing pricing data, Agent C is waiting to write the report.
+       I'll ping you when it's ready."
+```
 
 ---
 
-## 🤖 Agent Backends
+## Architecture
 
-### Open Interpreter (Default)
-Works with any LLM. I can run shell commands and Python code.
-
-### Claude Code
-Uses Anthropic's computer use. I can see your screen and control GUI apps.
-
-Switch anytime in settings!
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        YOU (Telegram / Web)                      │
+└──────────────────────┬───────────────────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                      Channel Adapters                            │
+│              Telegram Bot  ·  WebSocket Dashboard                │
+└──────────────────────┬───────────────────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                       Message Bus                                │
+│           Async event queue · Inbound / Outbound routing         │
+└────────┬─────────────────────────────────────┬───────────────────┘
+         │                                     │
+         ▼                                     ▼
+┌─────────────────────────┐    ┌───────────────────────────────────┐
+│      Agent Loop          │    │        Mission Control            │
+│                          │    │                                   │
+│  Context Builder         │    │  Multi-agent orchestration        │
+│  (Identity + Soul +      │    │  Task assignment & lifecycle      │
+│   Style + Memory)        │    │  Heartbeat daemon (15 min)        │
+│         │                │    │  Live execution streaming         │
+│         ▼                │    │  Document management              │
+│    Agent Router          │    │  Agent status tracking            │
+│    ┌──────────┐          │    │                                   │
+│    │Claude SDK│ (recommended)│ │  Status: INBOX → ASSIGNED →      │
+│    ├──────────┤          │    │  IN_PROGRESS → REVIEW → DONE     │
+│    │Open Interp│         │    │                                   │
+│    ├──────────┤          │    └───────────────────────────────────┘
+│    │ Native   │          │
+│    └──────────┘          │
+└────────┬─────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                        Tool Registry                             │
+│  Shell · Filesystem · Browser · Desktop · Memory · HTTP Fetch    │
+└────────┬──────────────────────────────┬──────────────────────────┘
+         │                              │
+         ▼                              ▼
+┌──────────────────────┐    ┌──────────────────────────────────────┐
+│    LLM Router         │    │          Security Layer              │
+│                       │    │                                      │
+│  Anthropic (Claude)   │    │  Guardian AI — blocks dangerous cmds │
+│  OpenAI (GPT)         │    │  Audit Log  — tracks every action   │
+│  Ollama (local)       │    │  File Jail  — sandboxed directories │
+│                       │    │  Panic Button — instant kill switch │
+│  Auto-detection +     │    │                                      │
+│  fallback chain       │    └──────────────────────────────────────┘
+└───────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                       Memory System                              │
+│                                                                  │
+│  File Store (default)        Mem0 Store (optional)               │
+│  ~/.pocketclaw/memory/       Semantic vector search              │
+│  Markdown-based              Automatic fact extraction           │
+│  Human-readable              LLM-powered recall                  │
+│                                                                  │
+│  API: remember() · recall() · search() · get_context()          │
+└──────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 🧠 Memory System
+## Features
 
-I can remember things about you across conversations!
+### Core Platform
 
-```
-You: "Remember that I prefer dark mode and my project is called PocketClaw"
-Me:  "Got it! I'll remember your preference for dark mode and that you're
-      working on PocketClaw."
+| Feature | Description |
+|---------|-------------|
+| **Multi-Agent Orchestration** | Mission Control coordinates multiple agents on complex tasks with heartbeats, live streaming, and document management |
+| **3 Agent Backends** | Claude Agent SDK (recommended), Open Interpreter, or PocketPaw Native — switch anytime |
+| **Multi-LLM Support** | Anthropic, OpenAI, or Ollama (100% local). Auto-detection with fallback chain |
+| **Telegram-First** | Control from anywhere. QR code pairing, no port forwarding needed |
+| **Web Dashboard** | Real-time WebSocket UI with chat, mission control, file browser, and system monitoring |
 
-[Next day...]
+### Intelligence
 
-You: "What project am I working on?"
-Me:  "You're working on PocketClaw!"
-```
+| Feature | Description |
+|---------|-------------|
+| **Persistent Memory** | Dual backend — file-based markdown + Mem0 semantic vector search. Remembers across sessions |
+| **Persona System** | Identity, Soul, and Style files shape personality. Injected into every conversation |
+| **Skills System** | YAML-based repeatable workflows. Hot-reload, argument substitution, agent-executed |
+| **Browser Automation** | Playwright-powered. Navigates, clicks, types, screenshots. Accessibility tree for semantic page understanding |
+| **Scheduling** | APScheduler-based reminders and recurring tasks with natural language time parsing |
+
+### Security
+
+| Feature | Description |
+|---------|-------------|
+| **Guardian AI** | Secondary LLM analyzes every shell command before execution. Blocks dangerous patterns |
+| **Audit Logging** | Append-only log of every tool use, permission check, and security event |
+| **File Jail** | Agents stay within allowed directories |
+| **Panic Button** | Instant kill switch from Telegram or web dashboard |
+| **Single User Lock** | Only your Telegram user ID can control the agent |
+
+---
+
+## Memory System
 
 ### Default: File-based Memory
 Stores memories as readable markdown in `~/.pocketclaw/memory/`:
@@ -145,119 +219,149 @@ Stores memories as readable markdown in `~/.pocketclaw/memory/`:
 For smarter memory with vector search and automatic fact extraction:
 
 ```bash
-# Install with memory extras
 pip install pocketpaw[memory]
-
-# Or install mem0 separately
-pip install mem0ai
 ```
 
-Then configure in `.env`:
-```bash
-MEMORY_BACKEND=mem0
-MEMORY_USE_INFERENCE=true  # LLM extracts facts automatically
-```
-
-**Mem0 features:**
-- Semantic search (find related memories, not just keyword matches)
-- Automatic fact extraction from conversations
-- Memory evolution (updates facts instead of duplicating)
-
-> **Note:** Mem0 requires embeddings. By default it uses OpenAI embeddings (needs `OPENAI_API_KEY`). For fully local, configure a local embedding model.
+Then set `MEMORY_BACKEND=mem0` in your environment. Mem0 gives you semantic search, automatic fact extraction, and memory evolution.
 
 ---
 
-## ⚙️ Configuration
+## Telegram Controls
 
-I store my config in `~/.pocketclaw/config.json`:
+| Button | Action |
+|--------|--------|
+| **Status** | CPU, RAM, disk, battery at a glance |
+| **Fetch** | Browse and download files from your machine |
+| **Screenshot** | Capture what's on screen |
+| **Agent Mode** | Toggle autonomous execution |
+| **Panic** | Emergency stop — halts all agents immediately |
+| **Settings** | Switch LLM provider, agent backend, memory settings |
+
+---
+
+## Configuration
+
+Config lives in `~/.pocketclaw/config.json`:
 
 ```json
 {
   "telegram_bot_token": "your-bot-token",
   "allowed_user_id": 123456789,
-  "agent_backend": "open_interpreter",
-  "llm_provider": "ollama",
-  "ollama_model": "llama3.2",
+  "agent_backend": "claude_agent_sdk",
+  "llm_provider": "anthropic",
+  "anthropic_api_key": "sk-ant-...",
   "memory_backend": "file"
 }
 ```
 
-Or use environment variables:
+Or use environment variables with the `POCKETCLAW_` prefix:
 
 ```bash
-# LLM Configuration
 export POCKETCLAW_ANTHROPIC_API_KEY="sk-ant-..."
-export POCKETCLAW_AGENT_BACKEND="claude_code"
-
-# Memory Configuration
-export MEMORY_BACKEND="mem0"           # "file" (default) or "mem0"
-export MEMORY_USE_INFERENCE="true"     # Enable LLM fact extraction
+export POCKETCLAW_AGENT_BACKEND="claude_agent_sdk"
+export POCKETCLAW_LLM_PROVIDER="ollama"
 ```
 
 ---
 
-## 🛠️ Telegram Controls
+## Project Structure
 
-| Button | What I Do |
-|--------|-----------|
-| 🟢 **Status** | Show you CPU, RAM, disk, battery info |
-| 📁 **Fetch** | Browse and download files from your computer |
-| 📸 **Screenshot** | Capture what's on your screen |
-| 🧠 **Agent Mode** | Toggle my autonomous thinking |
-| 🛑 **Panic** | Emergency stop - I'll halt immediately |
-| ⚙️ **Settings** | Switch my brain (LLM) or capabilities |
+```
+src/pocketclaw/
+├── agents/              # Agent backends & routing
+│   ├── claude_sdk.py    #   Claude Agent SDK (recommended)
+│   ├── open_interpreter.py  #   Open Interpreter backend
+│   ├── pocketpaw_native.py  #   Native orchestrator
+│   ├── router.py        #   Backend selection & delegation
+│   └── loop.py          #   Main execution loop
+├── mission_control/     # Multi-agent orchestration
+│   ├── models.py        #   Agent, Task, Document, Activity models
+│   ├── api.py           #   REST API endpoints
+│   ├── manager.py       #   High-level facade
+│   ├── executor.py      #   Task execution engine
+│   └── heartbeat.py     #   Agent heartbeat daemon
+├── bus/                 # Message routing
+│   ├── queue.py         #   Async message bus
+│   └── adapters/        #   Telegram & WebSocket adapters
+├── memory/              # Persistent memory
+│   ├── manager.py       #   Memory facade
+│   ├── file_store.py    #   Markdown-based storage
+│   └── mem0_store.py    #   Semantic vector search
+├── tools/               # Tool system
+│   ├── registry.py      #   Tool registry & execution
+│   └── builtin/         #   Shell, filesystem, browser, desktop, memory
+├── browser/             # Web automation
+│   ├── driver.py        #   Playwright wrapper
+│   └── snapshot.py      #   Accessibility tree snapshots
+├── security/            # Safety layer
+│   ├── guardian.py      #   AI command safety filter
+│   └── audit.py         #   Action audit logging
+├── skills/              # Extensible skills
+├── bootstrap/           # Persona & context assembly
+├── daemon/              # Proactive automation
+├── llm/                 # LLM provider routing
+├── config.py            # Settings (Pydantic)
+├── dashboard.py         # Web dashboard (FastAPI)
+├── bot_gateway.py       # Telegram bot gateway
+├── scheduler.py         # Task scheduling
+└── __main__.py          # Entry point
+```
 
 ---
 
-## 🔐 Security
-
-I take your safety seriously:
-
-- **Single User Lock** — Only YOU can control me
-- **File Jail** — I stay within allowed directories
-- **Guardian AI** — I check dangerous commands before running them
-- **Panic Button** — You can stop me instantly, always
-- **Local LLM Option** — Use Ollama and I'll never phone home
-
----
-
-## 🧑‍💻 Development
-
-Want to make me better? Here's how:
+## Development
 
 ```bash
 # Clone
 git clone https://github.com/pocketpaw/pocketpaw.git
 cd pocketpaw
 
-# Install with dev tools
+# Install with dev dependencies
 uv sync --dev
 
-# Run my tests
+# Run tests
 uv run pytest
 
-# Check my code style
+# Lint
 uv run ruff check .
+
+# Run in web dashboard mode
+uv run pocketpaw --web --port 8888
 ```
 
 ---
 
-## 🤝 Join the Pack
+## Roadmap
 
-- 🐦 Twitter: [@PocketPawAI](https://twitter.com/PocketPaw89242)
-- 💬 Discord: [Coming Soon]
-- 📧 Email: pocketpawai@gmail.com
+See [Feature Audit vs OpenClaw](docs/FEATURE_AUDIT_VS_OPENCLAW.md) for a detailed gap analysis.
 
-PRs welcome! Let's build the future of personal AI together.
+**Next up:**
+- [ ] Web search tool (Brave/Tavily)
+- [ ] Self-generating skills via conversation
+- [ ] Smart model routing (Opus for coding, Haiku for chat)
+- [ ] Telegram group topics for parallel conversations
+- [ ] OAuth framework + Gmail, Calendar, Slack integrations
+- [ ] Plan mode — agent proposes before executing
+- [ ] Image generation & voice/TTS
 
 ---
 
-## 📄 License
+## Join the Pack
 
-MIT © PocketPaw Team
+- Twitter: [@PocketPawAI](https://twitter.com/PocketPaw89242)
+- Discord: Coming Soon
+- Email: pocketpawai@gmail.com
+
+PRs welcome. Let's build the future of personal AI together.
 
 ---
+
+## License
+
+MIT &copy; PocketPaw Team
 
 <p align="center">
-  <b>🐾 Made with love for humans who want AI on their own terms 🐾</b>
+  <img src="paw.png" alt="PocketPaw" width="40">
+  <br>
+  <strong>Made with love for humans who want AI on their own terms</strong>
 </p>
