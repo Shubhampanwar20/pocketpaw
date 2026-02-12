@@ -280,9 +280,7 @@ class TestMCPManager:
         cfg = MCPServerConfig(name="fs")
         mock_session = AsyncMock()
         block = SimpleNamespace(text="hello world")
-        mock_session.call_tool = AsyncMock(
-            return_value=SimpleNamespace(content=[block])
-        )
+        mock_session.call_tool = AsyncMock(return_value=SimpleNamespace(content=[block]))
 
         state = _ServerState(config=cfg, session=mock_session, connected=True)
         mgr._servers["fs"] = state
