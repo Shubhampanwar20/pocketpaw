@@ -1122,7 +1122,7 @@ class PocketPawInstaller:
         except FileNotFoundError:
             # Might not be on PATH yet, try python -m
             try:
-                os.execvp(sys.executable, [sys.executable, "-m", "pocketclaw"])
+                os.execvp(sys.executable, [sys.executable, "-m", "pocketpaw"])
             except Exception as exc:
                 print(f"  Could not launch: {exc}")
                 print("  Try running 'pocketpaw' manually.\n")

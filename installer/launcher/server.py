@@ -63,7 +63,7 @@ class ServerManager:
             logger.info("Default port busy, using port %d", self.port)
 
         self.on_status(f"Starting PocketPaw on port {self.port}...")
-        logger.info("Starting server: %s -m pocketclaw --port %d", python, self.port)
+        logger.info("Starting server: %s -m pocketpaw --port %d", python, self.port)
 
         try:
             # Start the server process — redirect output to a log file
@@ -72,7 +72,7 @@ class ServerManager:
             self._log_fh = open(log_file, "a", encoding="utf-8")  # noqa: SIM115
             env = self._build_env()
             self._process = subprocess.Popen(
-                [str(python), "-m", "pocketclaw", "--port", str(self.port)],
+                [str(python), "-m", "pocketpaw", "--port", str(self.port)],
                 env=env,
                 stdout=self._log_fh,
                 stderr=self._log_fh,
@@ -84,7 +84,7 @@ class ServerManager:
             PID_FILE.write_text(str(self._process.pid))
 
             # Wait for the server to become healthy
-            # pocketclaw needs ~25s for startup + internal setup
+            # pocketpaw needs ~25s for startup + internal setup
             if self._wait_for_healthy(timeout=60):
                 self.on_status(f"PocketPaw running on port {self.port}")
                 return True
@@ -180,17 +180,17 @@ class ServerManager:
         else:
             venv_bin = str(VENV_DIR / "bin")
 
-        # Also add the uv directory so pocketclaw's auto_install can find uv
+        # Also add the uv directory so pocketpaw's auto_install can find uv
         uv_dir = str(POCKETPAW_HOME / "uv")
         env["PATH"] = venv_bin + os.pathsep + uv_dir + os.pathsep + env.get("PATH", "")
 
         env["VIRTUAL_ENV"] = str(VENV_DIR)
-        # Force UTF-8 so emoji/unicode in pocketclaw output doesn't crash
+        # Force UTF-8 so emoji/unicode in pocketpaw output doesn't crash
         # on Windows (default cp1252 can't encode them)
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUTF8"] = "1"
 
-        # Set UV_OVERRIDE so any uv invocation (including pocketclaw's
+        # Set UV_OVERRIDE so any uv invocation (including pocketpaw's
         # internal auto_install) uses our tiktoken override
         overrides_file = POCKETPAW_HOME / "uv-overrides.txt"
         if not overrides_file.exists():
