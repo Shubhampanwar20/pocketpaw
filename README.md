@@ -47,6 +47,8 @@ pip install pocketpaw && pocketpaw
 ```
 
 **That's it.** One command. 30 seconds. Your own AI agent.
+After installation, PocketPaw automatically opens the web dashboard in your default browser at http://localhost:8888. You can immediately start interacting with your AI agent from there.
+
 
 I'm your self-hosted, cross-platform personal AI agent. The web dashboard opens automatically. Talk to me right in your browser, or connect me to Discord, Slack, WhatsApp, or Telegram and control me from anywhere. I run on _your_ machine, respect _your_ privacy, and I'm always here.
 
